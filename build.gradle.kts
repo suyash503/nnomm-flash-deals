@@ -51,10 +51,13 @@ kotlin {
 
 application {
     mainClass.set("com.nnomm.deals.ApplicationKt")
+    // The JDBC driver sends the JVM's zone to Postgres, which rejects old aliases like Asia/Calcutta. All our times are UTC.
+    applicationDefaultJvmArgs = listOf("-Duser.timezone=UTC")
 }
 
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("-Duser.timezone=UTC")
     // The concurrency tests fire hundreds of requests; show what failed, not just that something did.
     testLogging {
         events("passed", "failed", "skipped")
