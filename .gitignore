@@ -1,0 +1,9 @@
+.gradle/
+build/
+.kotlin/
+out/
+.idea/
+*.iml
+.env
+Thumbs.db
+.DS_Store
