@@ -1,0 +1,44 @@
+# docker compose up  ->  Postgres + two instances of the service on 8080 and 8081, sharing one database.
+# Secrets come from .env (copy .env.example). The defaults below are for local runs only.
+
+x-app: &app
+  build: .
+  depends_on:
+    db:
+      condition: service_healthy
+  environment:
+    DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-nnomm}
+    DATABASE_USER: ${POSTGRES_USER:-nnomm}
+    DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-nnomm-local}
+    JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me}
+    WEBHOOK_SECRET: ${WEBHOOK_SECRET:-local-dev-webhook-secret-change-me}
+    CLAIM_TTL_SECONDS: ${CLAIM_TTL_SECONDS:-600}
+    PORT: "8080"
+  restart: on-failure
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nnomm}
+      POSTGRES_USER: ${POSTGRES_USER:-nnomm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nnomm-local}
+    # Notice dead client connections quickly, so a crashed instance's locks are released fast.
+    command: ["postgres", "-c", "tcp_keepalives_idle=10", "-c", "tcp_keepalives_interval=5", "-c", "tcp_keepalives_count=3"]
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app1:
+    <<: *app
+    ports:
+      - "8080:8080"
+
+  app2:
+    <<: *app
+    ports:
+      - "8081:8080"
