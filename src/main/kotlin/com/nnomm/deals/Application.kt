@@ -13,6 +13,7 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -62,6 +63,8 @@ fun Application.module(config: Config, db: Db) {
         while (isActive) {
             try {
                 while (expiry.sweepAll() == Expiry.BATCH_SIZE) { /* more due claims waiting: go again */ }
+            } catch (e: CancellationException) {
+                throw e // the server is stopping
             } catch (e: Exception) {
                 log.warn("Expiry sweep failed; retrying next tick", e)
             }
