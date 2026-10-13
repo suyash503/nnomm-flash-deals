@@ -13,6 +13,9 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("com.nnomm.deals")
@@ -44,7 +47,25 @@ fun Application.module(config: Config, db: Db) {
         }
     }
 
+    val expiry = Expiry(db)
+    val claims = ClaimService(db, expiry, config.claimTtlSeconds)
+    val payments = Payments(db, config.webhookSecret)
+
     routing {
         dealRoutes(db, auth)
+        claimRoutes(db, auth, claims)
+        webhookRoutes(payments)
+    }
+
+    // Each instance sweeps expired claims every second. Runs in the application's scope, so it stops with it.
+    launch {
+        while (isActive) {
+            try {
+                while (expiry.sweepAll() == Expiry.BATCH_SIZE) { /* more due claims waiting: go again */ }
+            } catch (e: Exception) {
+                log.warn("Expiry sweep failed; retrying next tick", e)
+            }
+            delay(config.sweepIntervalMillis)
+        }
     }
 }
